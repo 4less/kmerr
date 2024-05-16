@@ -9,7 +9,7 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8.11"
-bitintr = { version="0.3.0", feature="stdsimd" }
+bitintr = { version="0.3.0" } #, feature="stdsimd"
 
 
 [profile.release]
