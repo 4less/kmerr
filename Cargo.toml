@@ -1,5 +1,8 @@
 cargo-features = ["profile-rustflags"]
 
+[features]
+benchmarking = []
+
 [package]
 name = "kmerrs"
 version = "0.1.0"
@@ -9,6 +12,7 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8.11"
+kmers = "0.2.2"
 
 
 [profile.release]
@@ -16,4 +20,3 @@ opt-level = 3              # Use best optimizations
 overflow-checks = false     # Disable integer overflow checks.
 rustflags = ["-C", "target-feature=+avx,+sse3,+avx2,+fma"]
 
-#rustflags = ["-C", "target-feature=+avx2"]

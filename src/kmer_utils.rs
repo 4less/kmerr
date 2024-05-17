@@ -69,6 +69,28 @@ pub fn canonical_rc<const K: usize>(mut canon: u64) -> u64 {
     canon_rc
 }
 
+pub fn canonical_rc2<const K: usize>(canon: u64) -> u64 {
+    rev::<K>(!canon)
+}
+
+/// Create a reversed k-mer.
+#[inline]
+pub fn rev<const K: usize>(mut x: u64) -> u64 {
+    const M2: u64 = 0x3333333333333333;
+    const M3: u64 = 0x0F0F0F0F0F0F0F0F;
+    const M4: u64 = 0x00FF00FF00FF00FF;
+    const M5: u64 = 0x0000FFFF0000FFFF;
+    const M6: u64 = 0x00000000FFFFFFFF;
+
+    x = ((x >> 2) & M2) | ((x & M2) << 2);
+    x = ((x >> 4) & M3) | ((x & M3) << 4);
+    x = ((x >> 8) & M4) | ((x & M4) << 8);
+    x = ((x >> 16) & M5) | ((x & M5) << 16);
+    x = ((x >> 32) & M6) | ((x & M6) << 32);
+    x >>= 64 - 2 * K;
+    x
+}
+
 pub fn slice_to_canonical_2(slice: &[u8]) -> u64 {
     if slice.len() > 32 {
         panic!("u64 can only hold 32 bases")
@@ -129,7 +151,7 @@ pub fn hamming_distance(_a: u64, _b: u64) {
 mod kmer_utils_tests {
     use test::Bencher;
 
-    use crate::kmer_utils::{hamming_distance, slice_to_canonical, slice_to_canonical_3, slice_to_canonical_4, u8_to_canonical, canonical_to_u8, canonical_rc};
+    use crate::kmer_utils::{canonical_rc, canonical_rc2, canonical_to_u8, hamming_distance, slice_to_canonical, slice_to_canonical_3, slice_to_canonical_4, u8_to_canonical};
 
     use super::slice_to_canonical_2;
 
@@ -212,6 +234,17 @@ mod kmer_utils_tests {
         assert_ne!(fwd, rev);
     }
 
+    #[test]
+    fn test_canonical_rc_2() {
+        let kmer_fwd: &str = "GACTACTACTAGCCA";
+        let kmer_rev: &str = "TGGCTAGTAGTAGTC";
+        let fwd = slice_to_canonical_4(kmer_fwd.as_bytes());
+        let rev: u64 = slice_to_canonical_4(kmer_rev.as_bytes());
+        assert_eq!(fwd, canonical_rc2::<15>(rev));
+        assert_eq!(rev, canonical_rc2::<15>(fwd));
+        assert_ne!(fwd, rev);
+    }
+
     // #[test]
     // fn test_slice_to_canonical_4() {
     //     let a = 0b0100011000101110101011010101000;
@@ -254,5 +287,13 @@ mod kmer_utils_tests {
         let kmer: &str = "GACTACTACTAGCCA";
         let fwd = slice_to_canonical_4(kmer.as_bytes());
         b.iter(|| canonical_rc::<15>(fwd))
+    }
+
+
+    #[bench]
+    fn bench_canonical_rc_2(b: &mut Bencher) {
+        let kmer: &str = "GACTACTACTAGCCA";
+        let fwd = slice_to_canonical_4(kmer.as_bytes());
+        b.iter(|| canonical_rc2::<15>(fwd))
     }
 }

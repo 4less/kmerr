@@ -1,4 +1,6 @@
-use crate::{minimizer::context_free::Minimizer, utils::min_index};
+use std::cmp::min;
+
+use crate::{minimizer::context_free::Minimizer, utils::{min_index}};
 
 pub struct ClosedSyncmer<const K: u64, const S: u64>
         where [(); (K - S + 1) as usize]: {
@@ -24,7 +26,7 @@ impl<const K: u64, const S: u64> ClosedSyncmer<K, S> where [(); (K - S + 1) as u
         ret_obj
     }
 
-    pub fn load(&mut self, canonical_kmer: u64) {
+    fn load(&mut self, canonical_kmer: u64) {
         for i in 0..self.smers_count {
             self.smers[i] = (canonical_kmer >> self.shifts[i]) & self.bitmask;
         }
@@ -36,8 +38,13 @@ impl<const K: u64, const S: u64> ClosedSyncmer<K, S> where [(); (K - S + 1) as u
 }
 
 impl<const K: u64, const S: u64> Minimizer for ClosedSyncmer <K, S> where [(); (K - S + 1) as usize]: {
-    fn is_minimizer(&self) -> bool {
-        self.index_min() == 0 || self.index_min() == self.smers_count - 1
+    fn is_minimizer(&mut self, hash: u64) -> bool {
+        if S == 0 {
+            return false;
+        }
+        self.load(hash);
+        let min = unsafe { self.smers.iter().min_by(|a, b| a.partial_cmp(b).unwrap_unchecked())}.unwrap();
+        min == &self.smers[0] || min == self.smers.last().unwrap()
     }
 }
 
@@ -90,6 +97,6 @@ mod closed_syncmer_tests {
             assert_eq!(cs.smers[i], correct[i]);
         }
         assert_eq!(cs.index_min(), 0);
-        assert!(cs.is_minimizer());
+        assert!(cs.is_minimizer(fwd));
     }
 }

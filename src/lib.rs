@@ -9,6 +9,7 @@ pub mod consecutive;
 pub mod syncmer;
 pub mod minimizer;
 
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
