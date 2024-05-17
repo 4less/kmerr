@@ -190,7 +190,7 @@ impl<'a, const K: usize> Iterator for KmerIter<'a, K> {
 mod kmer_tests {
     use test::Bencher;
 
-    use crate::consecutive::kmer::{Kmer, KmerIter};
+    use crate::{consecutive::kmer::{Kmer, KmerIter}, minimizer::context_free::Minimizer, syncmer::closed_syncmer::ClosedSyncmer};
 
     #[test]
     fn test_kmer_iter() {
@@ -381,7 +381,7 @@ mod kmer_tests {
     #[bench]
     fn bench_construct_kmers(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGC";
-        const K: usize = 10; 
+        const K: usize = 15; 
         let mut sum = 0;
         b.iter(|| {
             let init: Kmer<K> = Kmer::<K>::from_slice(&kmer[0..K].as_bytes()).unwrap();
@@ -395,9 +395,9 @@ mod kmer_tests {
 
     #[bench]
     fn bench_construct_kmers_naive(b: &mut Bencher) {
-        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGC";
+        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
         
-        const K: usize = 10; 
+        const K: usize = 15; 
         let mut sum = 0;
         b.iter(|| {
             for (start, end) in (K..kmer.len()).enumerate() {
@@ -409,9 +409,9 @@ mod kmer_tests {
 
     #[bench]
     fn bench_construct_kmers_iterator(b: &mut Bencher) {
-        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGC";
+        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
         
-        const K: usize = 10; 
+        const K: usize = 15; 
         let mut sum = 0;
         b.iter(|| {
             KmerIter::<K>::new(&kmer.as_bytes()).for_each(|(_, kmer)| {
@@ -422,15 +422,50 @@ mod kmer_tests {
 
     #[bench]
     fn bench_construct_kmers_iterator_option(b: &mut Bencher) {
-        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGC";
+        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
         
-        const K: usize = 10; 
+        const K: usize = 15; 
         let mut sum = 0;
         b.iter(|| {
             let mut k_iter = KmerIter::<K>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(false);
             k_iter.for_each(|(_, kmer)| {
                 sum += kmer.0;
+            });
+        })
+    }
+
+    #[bench]
+    fn bench_construct_kmers_iterator_option_2(b: &mut Bencher) {
+        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
+        
+        const K: usize = 15; 
+        let mut sum = 0;
+        b.iter(|| {
+            let mut k_iter = KmerIter::<K>::new(&kmer.as_bytes());
+            k_iter.set_assume_perfect_data(false);
+            k_iter.for_each(|(_, kmer)| {
+                sum += kmer.0;
+            });
+        })
+    }
+
+    #[bench]
+    fn bench_construct_kmers_iterator_option_closed_syncmer(b: &mut Bencher) {
+        let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
+        
+        const K: usize = 15; 
+        const S: usize = 7; 
+        let mut cs = ClosedSyncmer::<{K as u64},{S as u64}>::new();
+
+        let mut sum = 0;
+        b.iter(|| {
+            let mut k_iter = KmerIter::<K>::new(&kmer.as_bytes());
+            k_iter.set_assume_perfect_data(false);
+            k_iter.for_each(|(_, kmer)| {
+                sum += kmer.0;
+                cs.load(kmer.0);
+                sum += cs.is_minimizer() as u64;
             });
         })
     }
