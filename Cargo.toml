@@ -12,6 +12,7 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8.11"
+fxhash = "0.2.1"
 kmers = "0.2.2"
 
 

@@ -143,7 +143,7 @@ impl<'a, const K: usize, const SKIP_N: bool> KmerIter<'a, K, SKIP_N> {
     }
 
     #[inline]
-    pub fn perfect_next(&mut self) -> Option<(usize, Kmer::<K>)> {
+    pub fn perfect_next_pair(&mut self) -> Option<(usize, Kmer::<K>, Kmer::<K>)> {
         loop {
             let mut nuc: u8 = self.seq[self.pos];
             let allowed = allowed(nuc);
@@ -166,7 +166,7 @@ impl<'a, const K: usize, const SKIP_N: bool> KmerIter<'a, K, SKIP_N> {
                     if self.i == K {
                         self.fwd.0 &= self.mask;
                         self.i -= 1;
-                        return Some((self.pos - K, min(self.fwd.clone(), self.rev.clone())));
+                        return Some((self.pos - K, self.fwd.clone(), self.rev.clone()));
                     }
                     if self.pos >= self.seq.len() {
                         return None;
@@ -180,11 +180,11 @@ impl<'a, const K: usize, const SKIP_N: bool> KmerIter<'a, K, SKIP_N> {
 
 
 impl<'a, const K: usize, const SKIP_N: bool> Iterator for KmerIter<'a, K, SKIP_N> {
-    type Item = (usize, Kmer::<K>);
+    type Item = (usize, Kmer::<K>, Kmer::<K>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos == usize::MAX || self.pos >= self.seq.len() { return None; }
-        self.perfect_next()
+        self.perfect_next_pair()
         // if self.assume_perfect_data {  } else { self.imperfect_next() }
     }
 }
@@ -193,7 +193,7 @@ impl<'a, const K: usize, const SKIP_N: bool> Iterator for KmerIter<'a, K, SKIP_N
 
 #[cfg(test)]
 mod kmer_tests {
-    use std::cmp::min;
+    use std::{cmp::min, hash::{DefaultHasher, Hash, Hasher}};
 
     use kmers::KmerIterator;
     use test::Bencher;
@@ -204,6 +204,7 @@ mod kmer_tests {
         minimizer::{context_free::Minimizer, universal_minimizer::{self, UniMin}}, 
         syncmer::closed_syncmer::ClosedSyncmer};
     use kmers::{Kmer as ExtKmer};
+    use fxhash::FxHasher64;
 
     #[test]
     fn test_kmer_iter() {
@@ -220,7 +221,8 @@ mod kmer_tests {
             Kmer::<K>::from_slice("CTACT".as_bytes()).unwrap().get_smallest_rc(),]; 
 
         let mut count = 0;
-        for (pos, kmer) in KmerIter::<K, SKIP_N>::new(kmer.as_bytes()) {
+        for (pos, fwd, rev) in KmerIter::<K, SKIP_N>::new(kmer.as_bytes()) {
+            let kmer = min(fwd, rev);
             assert_eq!(true_kmers[pos].to_string().unwrap(), kmer.to_string().unwrap());
             count += 1;
         }
@@ -242,7 +244,8 @@ mod kmer_tests {
         iter.set_assume_perfect_data(false);
 
         let mut count = 0;
-        for (_pos, kmer) in iter {
+        for (_pos, fwd, rev) in iter {
+            let kmer = min(fwd, rev);
             assert_eq!(true_kmers[count].to_string().unwrap(), kmer.to_string().unwrap());
             count += 1;
         }
@@ -259,7 +262,7 @@ mod kmer_tests {
         iter.set_assume_perfect_data(false);
 
         let mut count = 0;
-        for (_pos, _kmer) in iter {
+        for (_pos, fwd, rev) in iter {
             count += 1;
         }
 
@@ -280,7 +283,8 @@ mod kmer_tests {
         iter.set_assume_perfect_data(false);
 
         let mut count = 0;
-        for (_pos, kmer) in iter {
+        for (_pos, fwd, rev) in iter {
+            let kmer = min(fwd, rev);
             assert_eq!(true_kmers[count].to_string().unwrap(), kmer.to_string().unwrap());
             count += 1;
         }
@@ -304,7 +308,8 @@ mod kmer_tests {
         iter.set_assume_perfect_data(false);
 
         let mut count = 0;
-        for (_pos, kmer) in iter {
+        for (_pos, fwd, rev) in iter {
+            let kmer = min(fwd, rev);
             assert_eq!(true_kmers[count].to_string().unwrap(), kmer.to_string().unwrap());
             count += 1;
         }
@@ -435,7 +440,8 @@ mod kmer_tests {
         const K: usize = 15; 
         let mut sum = 0;
         b.iter(|| {
-            KmerIter::<K, true>::new(&kmer.as_bytes()).for_each(|(_, kmer)| {
+            KmerIter::<K, true>::new(&kmer.as_bytes()).for_each(|(_, fwd, rev)| {
+                let kmer = min(fwd, rev);
                 sum += kmer.0;
             });
         })
@@ -450,7 +456,8 @@ mod kmer_tests {
         b.iter(|| {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(false);
-            k_iter.for_each(|(_, kmer)| {
+            k_iter.for_each(|(_, fwd, rev)| {
+                let kmer = min(fwd, rev);
                 sum += kmer.0;
             });
         })
@@ -465,7 +472,8 @@ mod kmer_tests {
         b.iter(|| {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(true);
-            for (pos, kmer) in k_iter {
+            for (pos, fwd, rev) in k_iter {
+                let kmer = min(fwd, rev);
                 sum += kmer.0;
             }
         })
@@ -484,7 +492,8 @@ mod kmer_tests {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(false);
 
-            k_iter.for_each(|(_, kmer)| {
+            k_iter.for_each(|(_, fwd, rev)| {
+                let kmer = min(fwd, rev);
                 sum += kmer.0;
                 sum += cs.is_minimizer(kmer.0) as u64;
             });
@@ -499,14 +508,20 @@ mod kmer_tests {
         const S: usize = 7; 
         let mut minim: UniMin<15, 8> = UniMin::<K,8>::new();
 
+        // let mut state = DefaultHasher::new();
+        let mut hasher = FxHasher64::default();
+
+        let mut kmers: Vec<(usize, Kmer<15>)> = vec![(0, Kmer::<K>(0)); 50];
+
         let mut sum = 0;
         b.iter(|| {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
-            k_iter.set_assume_perfect_data(false);
 
-            k_iter.for_each(|(_, kmer)| {
-                sum += kmer.0;
-                sum += minim.is_minimizer(kmer.0) as u64;
+            k_iter.for_each(|(_, fwd, rev)| {
+                let kmer = min(fwd, rev);
+                kmer.hash(&mut hasher);
+                let hash = hasher.finish();
+                sum += minim.is_minimizer(hash >> (64-(K*2))) as usize;
             });
         })
     }

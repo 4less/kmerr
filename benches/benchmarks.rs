@@ -3,6 +3,8 @@
 extern crate test;
 extern crate kmerrs;
 
+use std::cmp::min;
+
 use kmerrs::*;
 
 use test::Bencher;
@@ -22,7 +24,8 @@ fn bench_construct_kmers_iterator_option_closed_syncmer(b: &mut Bencher) {
     b.iter(|| {
         let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
         k_iter.set_assume_perfect_data(false);
-        k_iter.for_each(|(_, kmer)| {
+        k_iter.for_each(|(_, fwd, rev)| {
+            let kmer = min(fwd, rev);
             sum += kmer.0;
             sum += cs.is_minimizer(kmer.0) as u64;
         });

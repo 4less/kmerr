@@ -24,7 +24,8 @@ fn main() {
 
     println!("{}", kmer);
     let mut smer_count = 0;
-    for (pos, kmer) in kit {
+    for (pos, fwd, rev) in kit {
+        let kmer = min(fwd, rev);
         kmer.hash(&mut state);
         let hash = state.finish();
         if !cs.is_minimizer(hash >> (64-(K*2))) {
