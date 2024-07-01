@@ -145,6 +145,9 @@ impl<'a, const K: usize, const SKIP_N: bool> KmerIter<'a, K, SKIP_N> {
     #[inline]
     pub fn perfect_next_pair(&mut self) -> Option<(usize, Kmer::<K>, Kmer::<K>)> {
         loop {
+            if self.pos >= self.seq.len() {
+                return None;
+            }
             let mut nuc: u8 = self.seq[self.pos];
             let allowed = allowed(nuc);
             self.pos += 1;
