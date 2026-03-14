@@ -1,5 +1,6 @@
 #![feature(test)]
 #![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
 
 extern crate test;
 

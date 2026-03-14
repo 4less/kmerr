@@ -7,7 +7,7 @@ use std::cmp::min;
 
 use kmerrs::*;
 
-use test::Bencher;
+use test::{black_box, Bencher};
 
 use crate::{consecutive::kmer::{Kmer, KmerIter}, minimizer::context_free::Minimizer, syncmer::closed_syncmer::ClosedSyncmer};
 
@@ -18,7 +18,7 @@ fn bench_construct_kmers_iterator_option_closed_syncmer(b: &mut Bencher) {
     
     const K: usize = 15; 
     const S: usize = 7; 
-    let mut cs = ClosedSyncmer::<{K as u64},{S as u64}>::new();
+    let mut cs = ClosedSyncmer::<{K as usize},{S as usize}>::new();
 
     let mut sum = 0;
     b.iter(|| {
@@ -26,8 +26,7 @@ fn bench_construct_kmers_iterator_option_closed_syncmer(b: &mut Bencher) {
         k_iter.set_assume_perfect_data(false);
         k_iter.for_each(|(_, fwd, rev)| {
             let kmer = min(fwd, rev);
-            sum += kmer.0;
-            sum += cs.is_minimizer(kmer.0) as u64;
+            black_box(cs.is_minimizer(kmer.0) as u64);
         });
     })
 }

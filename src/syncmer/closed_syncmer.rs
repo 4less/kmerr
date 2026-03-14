@@ -1,26 +1,25 @@
-use std::cmp::min;
 
-use crate::{minimizer::context_free::Minimizer, utils::{min_index}};
+use crate::{minimizer::context_free::Minimizer, utils::min_index};
 
-pub struct ClosedSyncmer<const K: u64, const S: u64>
-        where [(); (K - S + 1) as usize]: {
+
+#[derive(Clone)]
+pub struct ClosedSyncmer<const K: usize, const S: usize, const L: usize = {K - S + 1}> {
     smers_count: usize,
-    smers: [u64; (K - S + 1) as usize] ,
-    shifts: [u64; (K - S + 1) as usize] ,
+    smers: [u64; L] ,
+    shifts: [u64; L] ,
     bitmask: u64,
 }
 
-impl<const K: u64, const S: u64> ClosedSyncmer<K, S> where [(); (K - S + 1) as usize]: {
+impl<const K: usize, const S: usize, const L: usize> ClosedSyncmer<K, S, L> {
     pub fn new() -> Self {
-        let smers_count = (K - S + 1) as usize;
         let mut ret_obj = Self {
-            smers_count: smers_count,
-            smers: [0; (K - S + 1) as usize],
-            shifts: [0; (K - S + 1) as usize],
+            smers_count: L,
+            smers: [0; L],
+            shifts: [0; L],
             bitmask: (1 << 2*S) - 1,
         };
-        for i in 0..ret_obj.smers_count {
-            ret_obj.shifts[i] = ((smers_count*2) - ((i+1)*2)) as u64;
+        for i in 0..L {
+            ret_obj.shifts[i] = ((L*2) - ((i+1)*2)) as u64;
         }
 
         ret_obj
@@ -37,16 +36,24 @@ impl<const K: u64, const S: u64> ClosedSyncmer<K, S> where [(); (K - S + 1) as u
     }
 }
 
-impl<const K: u64, const S: u64> Minimizer for ClosedSyncmer <K, S> where [(); (K - S + 1) as usize]: {
+impl<const K: usize, const S: usize, const L: usize> Minimizer for ClosedSyncmer<K, S, L> {
     fn is_minimizer(&mut self, hash: u64) -> bool {
         if S == 0 {
             return false;
         }
         self.load(hash);
-        let min = unsafe { self.smers.iter().min_by(|a, b| a.partial_cmp(b).unwrap_unchecked())}.unwrap();
-        min == &self.smers[0] || min == self.smers.last().unwrap()
+        let min = self.smers.iter().min().unwrap();
+        // let min = unsafe { self.smers.iter().min_by(|a, b| a.partial_cmp(b).unwrap_unchecked())}.unwrap();
+        min == &self.smers[0]// && hash < 33554432// || min == self.smers.last().unwrap()
     }
 }
+
+impl<const K: usize, const S: usize, const L: usize> Default for ClosedSyncmer <K, S, L> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 
 
 #[cfg(test)]

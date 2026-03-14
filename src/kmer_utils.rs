@@ -149,7 +149,7 @@ pub fn hamming_distance(_a: u64, _b: u64) {
 
 #[cfg(test)]
 mod kmer_utils_tests {
-    use test::Bencher;
+    use test::{black_box, Bencher};
 
     use crate::kmer_utils::{canonical_rc, canonical_rc2, canonical_to_u8, hamming_distance, slice_to_canonical, slice_to_canonical_3, slice_to_canonical_4, u8_to_canonical};
 
@@ -261,32 +261,32 @@ mod kmer_utils_tests {
     #[bench]
     fn bench_slice_to_canonical1_1(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| slice_to_canonical(kmer.as_bytes()))
+        b.iter(|| black_box(slice_to_canonical(kmer.as_bytes())))
     }
 
     #[bench]
     fn bench_slice_to_canonical2_1(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| slice_to_canonical_2(kmer.as_bytes()))
+        b.iter(|| black_box(slice_to_canonical_2(kmer.as_bytes())))
     }
 
     #[bench]
     fn bench_slice_to_canonical3_1(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| slice_to_canonical_3(kmer.as_bytes()))
+        b.iter(|| black_box(slice_to_canonical_3(kmer.as_bytes())))
     }
 
     #[bench]
     fn bench_slice_to_canonical4_1(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| slice_to_canonical_4(kmer.as_bytes()))
+        b.iter(|| black_box(slice_to_canonical_4(kmer.as_bytes())))
     }
 
     #[bench]
     fn bench_canonical_rc_1(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCCA";
         let fwd = slice_to_canonical_4(kmer.as_bytes());
-        b.iter(|| canonical_rc::<15>(fwd))
+        b.iter(|| black_box(canonical_rc::<15>(fwd)))
     }
 
 
@@ -294,6 +294,6 @@ mod kmer_utils_tests {
     fn bench_canonical_rc_2(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCCA";
         let fwd = slice_to_canonical_4(kmer.as_bytes());
-        b.iter(|| canonical_rc2::<15>(fwd))
+        b.iter(|| black_box(canonical_rc2::<15>(fwd)))
     }
 }

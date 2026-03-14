@@ -46,6 +46,14 @@ impl<const K: usize> Kmer<K> {
         Kmer(canonical_rc2::<K>(self.0))
     }
 
+    #[inline]
+    pub fn is_own_rc(&self) -> bool {
+        if K % 2 == 1 {
+            Kmer::<K>(self.0 | 0b11 << (K - 1)) == Kmer::<K>(canonical_rc2::<K>(self.0) | 0b11 << (K - 1))
+        } else {
+            *self == Kmer::<K>(canonical_rc2::<K>(self.0))
+        }
+    }
 
     #[inline]
     pub fn is_smallest_rc(&self) -> bool {
@@ -199,7 +207,7 @@ mod kmer_tests {
     use std::{cmp::min, hash::{DefaultHasher, Hash, Hasher}};
 
     use kmers::KmerIterator;
-    use test::Bencher;
+    use test::{black_box, Bencher};
 
     use crate::{
         consecutive::kmer::{Kmer, KmerIter}, 
@@ -398,26 +406,23 @@ mod kmer_tests {
     #[bench]
     fn bench_construct_kmer(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| Kmer::<17>::from_slice(&kmer.as_bytes()))
+        b.iter(|| black_box(Kmer::<17>::from_slice(&kmer.as_bytes())))
     }
 
     #[bench]
     fn bench_construct_kmer_external(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCA";
-        b.iter(|| ExtKmer::make(kmer));
+        b.iter(|| black_box(ExtKmer::make(kmer)));
     }
 
     #[bench]
     fn bench_construct_kmers(b: &mut Bencher) {
         let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGC";
         const K: usize = 15; 
-        let mut sum = 0;
         b.iter(|| {
             let init: Kmer<K> = Kmer::<K>::from_slice(&kmer[0..K].as_bytes()).unwrap();
-            sum += init.0;
             for i in K..kmer.len() {
-                let first = init.append(kmer.as_bytes()[i]);
-                sum += first.0;
+                black_box(init.append(kmer.as_bytes()[i]));
             }
         })
     }
@@ -430,8 +435,8 @@ mod kmer_tests {
         let mut sum = 0;
         b.iter(|| {
             for (start, end) in (K..kmer.len()).enumerate() {
-                let next = Kmer::<K>::from_slice(&kmer[start..end].as_bytes()).unwrap();
-                sum += min(next.0, canonical_rc2::<K>(next.0));
+                let next = black_box(Kmer::<K>::from_slice(&kmer[start..end].as_bytes()).unwrap());
+                black_box(min(next.0, canonical_rc2::<K>(next.0)));
             }
         })
     }
@@ -441,11 +446,9 @@ mod kmer_tests {
         let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
         
         const K: usize = 15; 
-        let mut sum = 0;
         b.iter(|| {
             KmerIter::<K, true>::new(&kmer.as_bytes()).for_each(|(_, fwd, rev)| {
-                let kmer = min(fwd, rev);
-                sum += kmer.0;
+                black_box(min(fwd, rev));
             });
         })
     }
@@ -455,13 +458,11 @@ mod kmer_tests {
         let kmer: &str = "GACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCGACTACTACTAGCTGCAGTACGTACGTCATCGTCTCTCGTGCTCCCGTGCCCGTGC";
         
         const K: usize = 15; 
-        let mut sum = 0;
         b.iter(|| {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(false);
             k_iter.for_each(|(_, fwd, rev)| {
-                let kmer = min(fwd, rev);
-                sum += kmer.0;
+                black_box(min(fwd, rev));
             });
         })
     }
@@ -476,8 +477,7 @@ mod kmer_tests {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
             k_iter.set_assume_perfect_data(true);
             for (pos, fwd, rev) in k_iter {
-                let kmer = min(fwd, rev);
-                sum += kmer.0;
+                black_box(min(fwd, rev));
             }
         })
     }
@@ -488,7 +488,7 @@ mod kmer_tests {
         
         const K: usize = 15; 
         const S: usize = 7; 
-        let mut cs = ClosedSyncmer::<{K as u64},{S as u64}>::new();
+        let mut cs = ClosedSyncmer::<K,S>::new();
 
         let mut sum = 0;
         b.iter(|| {
@@ -496,9 +496,8 @@ mod kmer_tests {
             k_iter.set_assume_perfect_data(false);
 
             k_iter.for_each(|(_, fwd, rev)| {
-                let kmer = min(fwd, rev);
-                sum += kmer.0;
-                sum += cs.is_minimizer(kmer.0) as u64;
+                let kmer = black_box(min(fwd, rev));
+                black_box(cs.is_minimizer(kmer.0));
             });
         })
     }
@@ -521,10 +520,10 @@ mod kmer_tests {
             let mut k_iter = KmerIter::<K, true>::new(&kmer.as_bytes());
 
             k_iter.for_each(|(_, fwd, rev)| {
-                let kmer = min(fwd, rev);
+                let kmer = black_box(min(fwd, rev));
                 kmer.hash(&mut hasher);
                 let hash = hasher.finish();
-                sum += minim.is_minimizer(hash >> (64-(K*2))) as usize;
+                black_box(minim.is_minimizer(hash >> (64-(K*2))));
             });
         })
     }
@@ -536,13 +535,13 @@ mod kmer_tests {
 
         const K: usize = 15; 
         const S: usize = 7; 
-        let mut cs = ClosedSyncmer::<{K as u64},{S as u64}>::new();
+        let mut cs = ClosedSyncmer::<K,S>::new();
 
         let mut sum = 0;
         b.iter(|| {
             let kit = KmerIterator::new(K, kmer.as_bytes().iter());
             for (kmer1, kmer2) in kit {
-                sum += min(kmer1.0, kmer2.0);
+                black_box(min(kmer1.0, kmer2.0));
             }
         });
     }
@@ -558,7 +557,7 @@ mod kmer_tests {
         b.iter(|| {
             ExtKmer::with_many(K, &kmer.as_bytes().iter(), |kmer| {
                 sum += kmer.0;
-                sum += kmer.rev(K).0;
+                black_box(kmer.rev(K).0);
             });
         });
     }
