@@ -146,6 +146,33 @@ pub fn hamming_distance(_a: u64, _b: u64) {
     // (a & b).popcnt()
 }
 
+/// De-biasing bijection over the `2*C`-bit core-mer space.
+///
+/// Canonicalisation (`min(fwd, rc)`) and the closed-syncmer rule (keep the core-mer whose *first*
+/// s-mer is smallest) both pull the *selected* core-mers toward low numeric values, so they cluster
+/// in the bottom of `[0, 2^(2C))`. Feeding the core-mer through this cheap invertible mix -- *before*
+/// the syncmer test and *before* using it as a direct-addressed key -- spreads both the selection
+/// and the key placement ~uniformly across the space, which is what lets the physical shard slicer
+/// cut roughly equal byte-sized slices.
+///
+/// It is a **bijection** on `[0, 2^(2C))`: odd-multiply and `x ^= x >> k` are each invertible modulo
+/// a power of two, kept inside the low `2*C` bits, so two distinct core-mers can never collide onto
+/// the same key. Only a handful of ALU ops, so it costs nothing measurable in the hot loop.
+#[inline(always)]
+pub fn mask_coremer<const C: usize>(x: u64) -> u64 {
+    debug_assert!(2 * C < 64, "mask_coremer needs 2*C < 64 bits");
+    const MUL1: u64 = 0x2545F491; // odd
+    const MUL2: u64 = 0x1B873593; // odd
+    let mask = (1u64 << (2 * C)) - 1;
+    let mut h = x & mask;
+    h ^= h >> 15;
+    h = h.wrapping_mul(MUL1) & mask;
+    h ^= h >> 13;
+    h = h.wrapping_mul(MUL2) & mask;
+    h ^= h >> 14;
+    h & mask
+}
+
 
 #[cfg(test)]
 mod kmer_utils_tests {
@@ -158,6 +185,22 @@ mod kmer_utils_tests {
     #[test]
     fn test_char_to_canonical1() {
         assert_eq!(u8_to_canonical(b'A'), 0b00);
+    }
+
+    #[test]
+    fn mask_coremer_is_a_bijection_in_range() {
+        // A direct-addressed key must never collide, so the mix has to be a bijection that stays
+        // inside the 2*C-bit space. Exhaustively check the whole space for a small C (2^(2*6)=4096).
+        use std::collections::HashSet;
+        use super::mask_coremer;
+        const N: u64 = 1 << 12;
+        let mut seen = HashSet::with_capacity(N as usize);
+        for x in 0..N {
+            let m = mask_coremer::<6>(x);
+            assert!(m < N, "mask escaped the range: {} -> {}", x, m);
+            assert!(seen.insert(m), "collision: two core-mers map to {}", m);
+        }
+        assert_eq!(seen.len(), N as usize, "not a bijection");
     }
 
     #[test]

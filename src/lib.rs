@@ -10,6 +10,9 @@ pub mod consecutive;
 pub mod syncmer;
 pub mod minimizer;
 
+#[cfg(test)]
+mod mask_density;
+
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
